@@ -1,0 +1,68 @@
+# Infrastructure Setup Progress
+
+## Phase 1: Pi 5 Foundation (k3s + first app)
+
+### Completed
+- [x] Created infra repo directory structure
+- [x] Created MOF Database Dockerfile (multi-stage, standalone output)
+- [x] Created MOF Database .dockerignore
+- [x] Updated next.config.ts with output: "standalone"
+- [x] Created K8s manifests for MOF Database (deployment, service, ingress, kustomization)
+- [x] Created homelab + prod Kustomize overlays
+- [x] Created GitHub Actions CI workflow (monorepo-aware, builds only changed sites)
+  - Detects which site changed via git diff
+  - Builds multi-arch images (arm64 for Pi + amd64 for Hetzner)
+  - Pushes to ghcr.io
+  - Supports manual trigger via workflow_dispatch
+
+### TODO
+- [ ] Init git in infra repo, push to GitHub
+- [ ] Install k3s on Pi 5
+- [ ] Set up kubectl access from laptop
+- [ ] Create K8s secret for DATABASE_URL
+- [ ] Build and push first Docker image
+- [ ] Deploy MOF Database to Pi 5 k3s
+- [ ] Verify site loads in browser on local network
+
+## Phase 2: PostgreSQL + Data Migration
+- [ ] Buy USB SSD for Pi 5
+- [ ] Mount SSD, configure PersistentVolume
+- [ ] Deploy PostgreSQL StatefulSet
+- [ ] Migrate data from Neon/Supabase
+- [ ] Update app env vars
+- [ ] Set up backup CronJob
+
+## Phase 3: GitOps with Flux
+- [ ] Install Flux CLI
+- [ ] Bootstrap Flux on Pi 5 cluster
+- [ ] Test auto-deploy loop (push → Flux → deployed)
+- [ ] Set up image automation or tag update pipeline
+
+## Phase 4: Observability
+- [ ] Install kube-prometheus-stack (Prometheus + Grafana)
+- [ ] Configure dashboards
+- [ ] Install Loki (if RAM allows)
+- [ ] Set up Telegram alerts
+
+## Phase 5: Remaining Apps + Scrapers
+- [ ] Dockerize remaining 9 sites (template Dockerfile)
+- [ ] Create K8s manifests for each site
+- [ ] Move scrapers to K8s CronJobs
+- [ ] CI pipelines for all sites
+
+## Phase 6: Terraform + Hetzner Production
+- [ ] Write Terraform config for Hetzner VPS
+- [ ] Provision VPS + install k3s
+- [ ] Bootstrap Flux (prod overlay)
+- [ ] cert-manager + Let's Encrypt
+- [ ] DNS cutover via Cloudflare
+- [ ] Cancel Vercel + Neon/Supabase paid tiers
+
+---
+
+## Architecture Notes
+- Monorepo (_saas) contains all 10 sites
+- Single GitHub Actions workflow detects changed sites and builds only those
+- Multi-arch images (arm64 + amd64) for Pi 5 and Hetzner compatibility
+- Infra repo is separate — contains K8s manifests, Flux config, Terraform, monitoring
+- GitOps: Flux on each cluster watches infra repo (different overlays per environment)
