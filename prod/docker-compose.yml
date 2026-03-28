@@ -16,11 +16,18 @@ services:
       - mof-database
       - clinical-trial-matching
       - upe-literature-db
-      - tga-intel
-      - cell-line-directory
-      - lab-software-directory
-      - reference-standards
       - reagent-price-aggregator
+      - reference-standards
+      - research-protocol-search
+      - calibration-finder
+      - consciousness-directory
+      - core-facilities-directory
+      - cro-directory
+      - lab-equipment-search
+      - grant-funding-aggregator
+      - govportals
+      - govcontractscout
+      - plasma-donation-au
     restart: unless-stopped
 
   certbot:
@@ -53,10 +60,10 @@ services:
     restart: unless-stopped
 
   # ===================
-  # SITES
+  # SCIENCE PIPELINE
   # ===================
   mof-database:
-    image: ghcr.io/jadlao/mof-database:latest
+    image: ghcr.io/jxbt414/mof-database:latest
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/mof_database
       - NODE_ENV=production
@@ -66,7 +73,7 @@ services:
     restart: unless-stopped
 
   clinical-trial-matching:
-    image: ghcr.io/jadlao/clinical-trial-matching:latest
+    image: ghcr.io/jxbt414/clinical-trial-matching:latest
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/clinical_trials
       - NODE_ENV=production
@@ -75,40 +82,70 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  upe-literature-db:
-    image: ghcr.io/jadlao/upe-literature-db:latest
+  reagent-price-aggregator:
+    image: ghcr.io/jxbt414/reagent-price-aggregator:latest
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/upe_literature
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/reagent_prices
       - NODE_ENV=production
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
 
-  tga-intel:
-    image: ghcr.io/jadlao/tga-intel:latest
+  lab-equipment-search:
+    image: ghcr.io/jxbt414/lab-equipment-search:latest
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/tga_intel
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/lab_equipment
       - NODE_ENV=production
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
 
-  cell-line-directory:
-    image: ghcr.io/jadlao/cell-line-directory:latest
+  research-protocol-search:
+    image: ghcr.io/jxbt414/research-protocol-search:latest
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/cell_line_directory
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/research_protocols
       - NODE_ENV=production
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
 
-  lab-software-directory:
-    image: ghcr.io/jadlao/lab-software-directory:latest
+  grant-funding-aggregator:
+    image: ghcr.io/jxbt414/grant-funding-aggregator:latest
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/lab_software
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/grant_funding
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  core-facilities-directory:
+    image: ghcr.io/jxbt414/core-facilities-directory:latest
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/core_facilities
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  plasma-donation-au:
+    image: ghcr.io/jxbt414/plasma-donation-au:latest
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/plasma_donation
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  calibration-finder:
+    image: ghcr.io/jxbt414/calibration-finder:latest
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/calibration_finder
       - NODE_ENV=production
     depends_on:
       postgres:
@@ -116,7 +153,7 @@ services:
     restart: unless-stopped
 
   reference-standards:
-    image: ghcr.io/jadlao/reference-standards:latest
+    image: ghcr.io/jxbt414/reference-standards:latest
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/reference_standards
       - NODE_ENV=production
@@ -125,10 +162,56 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  reagent-price-aggregator:
-    image: ghcr.io/jadlao/reagent-price-aggregator:latest
+  cro-directory:
+    image: ghcr.io/jxbt414/cro-directory:latest
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/reagent_prices
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/cro_directory
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ===================
+  # CONSCIOUSNESS RESEARCH
+  # ===================
+  upe-literature-db:
+    image: ghcr.io/jxbt414/upe-literature-db:latest
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/upe_literature
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  consciousness-directory:
+    image: ghcr.io/jxbt414/consciousness-directory:latest
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/consciousness_directory
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ===================
+  # GOV / SAAS
+  # ===================
+  govcontractscout:
+    image: ghcr.io/jxbt414/govcontractscout:latest
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/govcontractscout
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  govportals:
+    image: ghcr.io/jxbt414/govportals:latest
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/govportals
       - NODE_ENV=production
     depends_on:
       postgres:

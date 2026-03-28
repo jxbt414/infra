@@ -11,15 +11,23 @@ set -e
 
 EMAIL="${1:-your-email@example.com}"
 
+# UPDATE PLACEHOLDER DOMAINS before running
 DOMAINS=(
   "mofindex.com"
   "clinicaltrialsfinder.org"
-  "upeliterature.com"
-  "tgaintel.com"
-  "celllinefinder.com"
-  "labsoftware.directory"
-  "referencestandards.org"
   "labpricecheck.com"
+  "labequipmentsearch.com"
+  "researchprotocols.com"
+  "grantfunding.com"
+  "researchcores.com"
+  "plasmafinder.com.au"
+  "calibrationfinder.com"
+  "referencestandards.org"
+  "crodirectory.com"
+  "upeliterature.com"
+  "consciousnessdirectory.com"
+  "govcontractscout.com"
+  "govportals.com"
 )
 
 for DOMAIN in "${DOMAINS[@]}"; do

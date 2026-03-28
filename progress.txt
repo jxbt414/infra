@@ -66,7 +66,7 @@ Last updated: 2026-03-28
 - [ ] CI pipelines for all sites
 
 ## Phase 6: Hetzner Production (Docker Compose)
-- [ ] Provision Hetzner CPX32 (8GB RAM, 4 vCPU, 160GB SSD — €10.49/mo)
+- [ ] Provision Hetzner CPX42 (16GB RAM, 8 vCPU, 320GB SSD — €19.49/mo)
 - [ ] Install Docker + Docker Compose on VPS
 - [ ] Clone infra repo to /opt/infra
 - [ ] Create .env with Postgres credentials
@@ -95,8 +95,8 @@ Last updated: 2026-03-28
 - NOT for serving production traffic
 
 **Production (Hetzner CPX32) — Docker Compose:**
-- Single VPS: 8GB RAM, 4 vCPU, 160GB SSD — €10.49/mo
-- Docker Compose with: 8 Next.js sites + PostgreSQL + Nginx + Certbot
+- Single VPS: 16GB RAM, 8 vCPU, 320GB SSD — €19.49/mo
+- Docker Compose with: 15 Next.js sites + PostgreSQL + Nginx + Certbot
 - Why not K8s: single VPS doesn't benefit from K8s orchestration, Docker Compose is the right tool
 - Scrapers run via system crontab + docker exec
 - Database backups via cron + pg_dump
@@ -108,9 +108,9 @@ Last updated: 2026-03-28
 - Interview answer: "I chose Docker Compose for production because K8s was overkill for a single node"
 
 ### Cost Comparison
-- Before: Vercel Pro ($20/site × 8) + Neon ($19+) = ~$180+/mo
-- After: Hetzner CPX32 = €10.49/mo (~$11 USD)
-- Savings: ~$170/mo, ~$2,000/yr
+- Before: Vercel Pro ($20/site × 15) + Neon ($19+) = ~$320+/mo
+- After: Hetzner CPX42 = €19.49/mo (~$21 USD)
+- Savings: ~$300/mo, ~$3,600/yr
 
 ### Repo Structure
 ```
@@ -125,33 +125,50 @@ infra/
 │   ├── docker-compose.yml
 │   ├── nginx/
 │   │   ├── nginx.conf
-│   │   └── sites/          # Per-domain configs (8 files)
+│   │   └── sites/          # Per-domain configs (15 files)
 │   └── .env.example
 ├── scripts/                # Shared scripts
 │   ├── add-site.sh         # Scaffold K8s manifests
 │   ├── deploy.sh           # SSH deploy to VPS
 │   ├── init-ssl.sh         # First-time Let's Encrypt
-│   ├── init-databases.sql  # Create 8 Postgres databases
+│   ├── init-databases.sql  # Create 15 Postgres databases
 │   └── backup-db.sh        # pg_dump all databases
 └── templates/              # Shared Dockerfile + K8s templates
 ```
 
 ### Code Layout
-- **_saas monorepo:** All 8 Next.js sites + scrapers
+- **Individual repos:** Each site has its own GitHub repo with CI/CD
 - **infra repo (public):** homelab/ (K8s) + prod/ (Docker Compose) + shared scripts/templates
-- **GitHub Actions CI:** Build workflow in _saas → triggers deploy workflow on success
+- **GitHub Actions CI:** Each site repo builds its own Docker image → deploys to VPS via SSH
 
-### Domain Mapping
-| Site | Domain | Status |
-|------|--------|--------|
-| mof-database | mofindex.com | Needs custom domain |
-| clinical-trial-matching | clinicaltrialsfinder.org | Active |
-| upe-literature-db | upeliterature.com | Needs custom domain |
-| tga-intel | tgaintel.com | Needs custom domain |
-| cell-line-directory | celllinefinder.com | Active |
-| lab-software-directory | labsoftware.directory | Needs custom domain |
-| reference-standards | referencestandards.org | Needs custom domain |
-| reagent-price-aggregator | labpricecheck.com | Active |
+### Site Roster (15 sites)
+
+**Science Pipeline (11):**
+| # | Local directory | GitHub repo | Domain | Status |
+|---|---|---|---|---|
+| 1 | mof-database | mof-database | mofindex.com | Needs domain |
+| 2 | clinical-trial-matching | clinical-trials-finder | clinicaltrialsfinder.org | Active |
+| 3 | reagent-price-aggregator | labpricecheck | labpricecheck.com | Active |
+| 4 | lab-equipment-search | lab-equipment-search | TBD | Needs domain |
+| 5 | research-protocol-search | researchprotocols | TBD | Needs domain |
+| 6 | grant-funding-aggregator | grant-funding-aggregator | TBD | Needs domain |
+| 7 | core-facilities-directory | researchcores | TBD | Needs domain |
+| 8 | plasma-donation-au | plasmafinder-au | plasmafinder.com.au | Active |
+| 9 | calibration-finder | calibration-finder | TBD | Needs domain |
+| 10 | reference-standards | reference-standards | referencestandards.org | Needs domain |
+| 11 | cro-directory | cro-directory | TBD | Needs domain |
+
+**Consciousness Research (2):**
+| # | Local directory | GitHub repo | Domain | Status |
+|---|---|---|---|---|
+| 12 | upe-literature-db | upe-literature-db | upeliterature.com | Needs domain |
+| 13 | consciousness-directory | consciousness-directory | TBD | Needs domain |
+
+**Gov / SaaS (2):**
+| # | Local directory | GitHub repo | Domain | Status |
+|---|---|---|---|---|
+| 14 | govcontractscout | govcontractscout | TBD | Needs domain |
+| 15 | govportals | govportals | TBD | Needs domain |
 
 ### Key Gotchas Found
 - Pi 5 default gateway not persisting after reboot — need to configure via nmcli permanently
