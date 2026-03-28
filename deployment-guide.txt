@@ -1,0 +1,118 @@
+Deployment Guide
+================
+
+Both environments pull the same Docker images from ghcr.io.
+CI builds once (multi-arch), deploys anywhere.
+
+
+PRODUCTION (Hetzner VPS — Docker Compose)
+=========================================
+
+Automatic Deploy (already set up):
+
+  Push code to _saas main
+    → GitHub Actions: build-site.yaml detects changed site
+    → Builds Docker image, pushes to ghcr.io
+    → Triggers deploy-prod.yaml
+    → SSHs into VPS, runs docker compose pull + up -d
+    → Site is live
+
+Manual Deploy:
+
+  # Deploy one site
+  ./scripts/deploy.sh mof-database
+
+  # Deploy all
+  ./scripts/deploy.sh
+
+First-Time VPS Setup (one-time):
+
+  # On the VPS
+  apt update && apt install docker.io docker-compose-v2
+  git clone https://github.com/jxbt414/infra /opt/infra
+  cd /opt/infra
+  cp prod/.env.example prod/.env
+  # Edit prod/.env with real Postgres password
+  docker compose -f prod/docker-compose.yml up -d postgres   # starts DB, creates 8 databases
+  ./scripts/init-ssl.sh your@email.com                        # get SSL certs
+  docker compose -f prod/docker-compose.yml up -d             # start everything
+
+Rollback:
+
+  # Roll back to a specific image tag (commit SHA)
+  docker compose -f prod/docker-compose.yml pull mof-database:abc1234
+  docker compose -f prod/docker-compose.yml up -d mof-database
+
+
+HOMELAB (Pi 5 — k3s)
+=====================
+
+Manual Deploy (current — Phase 1):
+
+  # Images are already built by CI (multi-arch, pushes to ghcr.io)
+  # On Pi 5:
+  kubectl apply -k homelab/manifests/overlays/homelab/
+
+Automated Deploy (Phase 3 — Flux GitOps):
+
+  Push code to _saas main
+    → GitHub Actions builds image, pushes to ghcr.io
+    → Flux watches ghcr.io for new image tags
+    → Flux auto-updates the deployment on Pi 5
+    → No SSH, no manual kubectl
+
+Rollback:
+
+  kubectl rollout undo deployment/mof-database
+
+
+COMPARISON
+==========
+
+                    Production (Hetzner)          Homelab (Pi 5)
+Orchestration       Docker Compose                k3s
+Image registry      ghcr.io                       ghcr.io (same images)
+Deploy trigger      GitHub Actions SSH            kubectl now, Flux later
+Deploy command      docker compose pull && up -d  kubectl apply -k
+Auto-deploy         Yes (deploy-prod.yaml)        Phase 3 (Flux)
+Rollback            docker compose pull older tag  kubectl rollout undo
+
+
+ADDING A NEW SITE
+=================
+
+1. Write the site code in _saas/<site-name>/
+2. Add a Dockerfile (copy from templates/nextjs/Dockerfile)
+3. Add output: "standalone" to next.config.ts
+4. Add the site to .github/workflows/build-site.yaml options list
+
+For homelab (K8s):
+5. Run: ./scripts/add-site.sh <site-name> <domain>
+6. Add to homelab/manifests/overlays/homelab/kustomization.yaml
+
+For production (Docker Compose):
+5. Add service to prod/docker-compose.yml
+6. Add nginx config to prod/nginx/sites/<site-name>.conf
+7. Add database to scripts/init-databases.sql
+8. Run ./scripts/init-ssl.sh for the new domain
+
+
+SCRAPER CRONS (Production VPS)
+==============================
+
+Add to /etc/crontab on the VPS:
+
+  # Example: run reagent scraper daily at 2am
+  0 2 * * * docker compose -f /opt/infra/prod/docker-compose.yml exec -T reagent-price-aggregator node scrapers/run.js
+
+  # Example: run Python scraper
+  0 3 * * * docker compose -f /opt/infra/prod/docker-compose.yml exec -T reagent-price-aggregator python scrapers/fetch_pubchem.py
+
+
+DATABASE BACKUPS (Production VPS)
+=================================
+
+Add to /etc/crontab on the VPS:
+
+  # Daily backup at 3am, 7-day retention
+  0 3 * * * /opt/infra/scripts/backup-db.sh

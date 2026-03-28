@@ -12,7 +12,7 @@ if [ -z "$SITE_NAME" ]; then
   exit 1
 fi
 
-MANIFEST_DIR="manifests/base/apps/${SITE_NAME}"
+MANIFEST_DIR="homelab/manifests/base/apps/${SITE_NAME}"
 
 if [ -d "$MANIFEST_DIR" ]; then
   echo "Site ${SITE_NAME} already exists at ${MANIFEST_DIR}"
@@ -32,6 +32,6 @@ echo ""
 echo "Next steps:"
 echo "  1. Copy templates/nextjs/Dockerfile to your app directory"
 echo "  2. Add output: 'standalone' to your next.config.ts"
-echo "  3. Add the site to manifests/overlays/homelab/kustomization.yaml"
+echo "  3. Add the site to homelab/manifests/overlays/homelab/kustomization.yaml"
 echo "  4. Create secret: kubectl create secret generic ${SITE_NAME}-secrets --from-literal=DATABASE_URL=<url>"
 echo "  5. Apply: kubectl apply -k manifests/overlays/homelab/"

@@ -1,5 +1,7 @@
 # Infrastructure Setup Progress
 
+Last updated: 2026-03-28
+
 ## Phase 1: Pi 5 Foundation (k3s + first app)
 
 ### Completed
@@ -9,60 +11,150 @@
 - [x] Updated next.config.ts with output: "standalone"
 - [x] Created K8s manifests for MOF Database (deployment, service, ingress, kustomization)
 - [x] Created homelab + prod Kustomize overlays
-- [x] Created GitHub Actions CI workflow (monorepo-aware, builds only changed sites)
+- [x] GitHub Actions CI workflow (monorepo-aware, builds only changed sites)
   - Detects which site changed via git diff
   - Builds multi-arch images (arm64 for Pi + amd64 for Hetzner)
   - Pushes to ghcr.io
   - Supports manual trigger via workflow_dispatch
+- [x] Created template Dockerfile + K8s manifests in infra/templates/
+- [x] Created add-site.sh scaffold script
+- [x] Created PostgreSQL StatefulSet + service manifests
+- [x] Init git on infra repo
+- [x] Pushed infra repo to GitHub (public): https://github.com/jxbt414/infra
+- [x] Archived/kept homelab-gitops and terraform-aws-infra repos (infra replaces both)
+- [x] Confirmed k3s already running on Pi 5 (v1.34.5+k3s1, single node, Ready status)
+- [x] Fixed kubectl version mismatch (snap kubectl v1.34.6 vs k3s v1.34.5 — use `sudo k3s kubectl`)
+- [x] Confirmed Pi 5 has internet access
+- [x] Published blog post on portfolio site: "From Vercel to K8s" (jxbit.dev/blog/vercel-to-k8s-self-hosting)
+
+### In Progress
+- [ ] Set up multi-node cluster on Pi 5 (3 VMs via KVM/libvirt: 1 control plane + 2 workers)
+  - VMs already exist on Pi (virbr0 bridge active, vnet interfaces visible)
+  - Need to verify existing VM state and configure k3s on each
 
 ### TODO
-- [ ] Init git in infra repo, push to GitHub
-- [ ] Install k3s on Pi 5
-- [ ] Set up kubectl access from laptop
+- [ ] Set up kubectl access from Mac laptop (copy kubeconfig, replace 127.0.0.1 with Pi IP)
 - [ ] Create K8s secret for DATABASE_URL
-- [ ] Build and push first Docker image
+- [ ] Build and push first Docker image (MOF Database)
 - [ ] Deploy MOF Database to Pi 5 k3s
 - [ ] Verify site loads in browser on local network
 
-## Phase 2: PostgreSQL + Data Migration
-- [ ] Buy USB SSD for Pi 5
+## Phase 2: PostgreSQL + Data Migration (Homelab)
+- [ ] Buy USB SSD for Pi 5 (SD cards corrupt under DB writes)
 - [ ] Mount SSD, configure PersistentVolume
 - [ ] Deploy PostgreSQL StatefulSet
 - [ ] Migrate data from Neon/Supabase
 - [ ] Update app env vars
 - [ ] Set up backup CronJob
 
-## Phase 3: GitOps with Flux
+## Phase 3: GitOps with Flux (Homelab)
 - [ ] Install Flux CLI
 - [ ] Bootstrap Flux on Pi 5 cluster
 - [ ] Test auto-deploy loop (push → Flux → deployed)
 - [ ] Set up image automation or tag update pipeline
 
-## Phase 4: Observability
+## Phase 4: Observability (Homelab)
 - [ ] Install kube-prometheus-stack (Prometheus + Grafana)
 - [ ] Configure dashboards
-- [ ] Install Loki (if RAM allows)
+- [ ] Install Loki (if RAM allows — Pi has 8GB total, shared across host + 3 VMs)
 - [ ] Set up Telegram alerts
 
-## Phase 5: Remaining Apps + Scrapers
-- [ ] Dockerize remaining 9 sites (template Dockerfile)
+## Phase 5: Remaining Apps + Scrapers (Homelab)
+- [ ] Dockerize remaining 7 sites (template Dockerfile)
 - [ ] Create K8s manifests for each site
-- [ ] Move scrapers to K8s CronJobs
+- [ ] Move scrapers to K8s CronJobs (replacing GitHub Actions cron — hit 2 job limit)
 - [ ] CI pipelines for all sites
 
-## Phase 6: Terraform + Hetzner Production
-- [ ] Write Terraform config for Hetzner VPS
-- [ ] Provision VPS + install k3s
-- [ ] Bootstrap Flux (prod overlay)
-- [ ] cert-manager + Let's Encrypt
-- [ ] DNS cutover via Cloudflare
-- [ ] Cancel Vercel + Neon/Supabase paid tiers
+## Phase 6: Hetzner Production (Docker Compose)
+- [ ] Provision Hetzner CPX32 (8GB RAM, 4 vCPU, 160GB SSD — €10.49/mo)
+- [ ] Install Docker + Docker Compose on VPS
+- [ ] Clone infra repo to /opt/infra
+- [ ] Create .env with Postgres credentials
+- [ ] Start PostgreSQL (auto-creates 8 databases via init-databases.sql)
+- [ ] Point all 8 domains to VPS IP in Cloudflare (DNS only, not proxied)
+- [ ] Run init-ssl.sh to get Let's Encrypt certs for all domains
+- [ ] Start all services: docker compose -f docker-compose.prod.yml up -d
+- [ ] Verify all 8 sites load via their domains
+- [ ] Add GitHub Actions secrets (VPS_HOST, VPS_USER, VPS_SSH_KEY)
+- [ ] Test deploy-prod.yaml workflow (auto-deploy on image build)
+- [ ] Migrate data from Neon/Supabase to VPS PostgreSQL
+- [ ] Set up database backup cron (backup-db.sh)
+- [ ] Set up scraper crons on VPS (system crontab)
+- [ ] DNS cutover complete — cancel Vercel + Neon/Supabase paid tiers
 
 ---
 
-## Architecture Notes
-- Monorepo (_saas) contains all 10 sites
-- Single GitHub Actions workflow detects changed sites and builds only those
-- Multi-arch images (arm64 + amd64) for Pi 5 and Hetzner compatibility
-- Infra repo is separate — contains K8s manifests, Flux config, Terraform, monitoring
-- GitOps: Flux on each cluster watches infra repo (different overlays per environment)
+## Architecture Decisions
+
+### Revised Architecture (2026-03-28)
+
+**Homelab (Pi 5) — K8s learning lab:**
+- 3-node k3s cluster via KVM VMs (1 control plane + 2 workers, ~2GB RAM each)
+- Purpose: learn multi-node K8s for DevOps interviews, test deployments, break things
+- Runs all K8s tooling: Kustomize, Flux, Prometheus/Grafana, CronJobs
+- NOT for serving production traffic
+
+**Production (Hetzner CPX32) — Docker Compose:**
+- Single VPS: 8GB RAM, 4 vCPU, 160GB SSD — €10.49/mo
+- Docker Compose with: 8 Next.js sites + PostgreSQL + Nginx + Certbot
+- Why not K8s: single VPS doesn't benefit from K8s orchestration, Docker Compose is the right tool
+- Scrapers run via system crontab + docker exec
+- Database backups via cron + pg_dump
+
+**Why the split:**
+- K8s on a single VPS is over-engineering — adds complexity without benefit
+- Docker Compose is simpler to debug, less RAM overhead, fewer moving parts
+- Homelab is where K8s skills are learned; production is where simplicity wins
+- Interview answer: "I chose Docker Compose for production because K8s was overkill for a single node"
+
+### Cost Comparison
+- Before: Vercel Pro ($20/site × 8) + Neon ($19+) = ~$180+/mo
+- After: Hetzner CPX32 = €10.49/mo (~$11 USD)
+- Savings: ~$170/mo, ~$2,000/yr
+
+### Repo Structure
+```
+infra/
+├── homelab/                # K8s learning lab (Pi 5)
+│   ├── manifests/
+│   │   ├── base/           # Shared K8s manifests
+│   │   └── overlays/       # homelab + prod overlays
+│   ├── flux/               # GitOps (Phase 3)
+│   └── monitoring/         # Prometheus/Grafana (Phase 4)
+├── prod/                   # Docker Compose production (Hetzner)
+│   ├── docker-compose.yml
+│   ├── nginx/
+│   │   ├── nginx.conf
+│   │   └── sites/          # Per-domain configs (8 files)
+│   └── .env.example
+├── scripts/                # Shared scripts
+│   ├── add-site.sh         # Scaffold K8s manifests
+│   ├── deploy.sh           # SSH deploy to VPS
+│   ├── init-ssl.sh         # First-time Let's Encrypt
+│   ├── init-databases.sql  # Create 8 Postgres databases
+│   └── backup-db.sh        # pg_dump all databases
+└── templates/              # Shared Dockerfile + K8s templates
+```
+
+### Code Layout
+- **_saas monorepo:** All 8 Next.js sites + scrapers
+- **infra repo (public):** homelab/ (K8s) + prod/ (Docker Compose) + shared scripts/templates
+- **GitHub Actions CI:** Build workflow in _saas → triggers deploy workflow on success
+
+### Domain Mapping
+| Site | Domain | Status |
+|------|--------|--------|
+| mof-database | mofindex.com | Needs custom domain |
+| clinical-trial-matching | clinicaltrialsfinder.org | Active |
+| upe-literature-db | upeliterature.com | Needs custom domain |
+| tga-intel | tgaintel.com | Needs custom domain |
+| cell-line-directory | celllinefinder.com | Active |
+| lab-software-directory | labsoftware.directory | Needs custom domain |
+| reference-standards | referencestandards.org | Needs custom domain |
+| reagent-price-aggregator | labpricecheck.com | Active |
+
+### Key Gotchas Found
+- Pi 5 default gateway not persisting after reboot — need to configure via nmcli permanently
+- snap kubectl (v1.34.6) conflicts with k3s (v1.34.5) — remove snap, symlink k3s kubectl
+- SD cards corrupt under database writes — USB SSD required for Postgres
+- WiFi adapter can crash after route changes — always have physical access fallback
