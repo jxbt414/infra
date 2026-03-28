@@ -1,0 +1,249 @@
+DEPLOYMENT PLAN — Homelab + Production
+=======================================
+Last updated: 2026-03-28
+
+
+==============================================
+PART 1: PRODUCTION (Hetzner VPS — Docker Compose)
+==============================================
+
+Initial deployment: 5 sites
+  - govportals
+  - govcontractscout
+  - reagent-price-aggregator (labpricecheck)
+  - clinical-trial-matching
+  - consciousness-directory
+
+STEP 1: Provision VPS
+  - Sign up at Hetzner Cloud
+  - Create CPX42 server (16GB RAM, 8 vCPU, 320GB SSD, €19.49/mo)
+  - Select Ubuntu 22.04 LTS
+  - Add your SSH key during creation
+  - Note the public IP address
+
+STEP 2: Initial server setup
+  ssh root@YOUR_VPS_IP
+  apt update && apt upgrade -y
+  apt install docker.io docker-compose-v2 git -y
+  systemctl enable docker
+  ufw allow 80
+  ufw allow 443
+  ufw allow 22
+  ufw enable
+
+STEP 3: Clone infra repo
+  git clone https://github.com/jxbt414/infra /opt/infra
+  cd /opt/infra
+
+STEP 4: Configure environment
+  cp prod/.env.example prod/.env
+  nano prod/.env
+  # Set a strong POSTGRES_PASSWORD
+
+STEP 5: Start PostgreSQL first
+  docker compose -f prod/docker-compose.yml up -d postgres
+  # Wait 10 seconds for it to initialize and create all 15 databases
+  docker compose -f prod/docker-compose.yml logs postgres
+  # Confirm: "database system is ready to accept connections"
+
+STEP 6: Log into GHCR (so Docker can pull your private images)
+  echo YOUR_GITHUB_PAT | docker login ghcr.io -u jxbt414 --password-stdin
+  # Create a PAT at github.com/settings/tokens with read:packages scope
+
+STEP 7: Start the 5 launch sites + nginx (HTTP only first)
+  # Temporarily comment out the SSL server blocks in sites-enabled configs
+  # Or just start without nginx first to verify sites work:
+  docker compose -f prod/docker-compose.yml up -d \
+    govportals govcontractscout reagent-price-aggregator \
+    clinical-trial-matching consciousness-directory
+
+STEP 8: Point DNS to VPS
+  In Cloudflare (for each of the 5 domains):
+  - Add A record: @ → YOUR_VPS_IP (DNS only, orange cloud OFF)
+  - Add A record: www → YOUR_VPS_IP (DNS only, orange cloud OFF)
+
+  Domains to point:
+  - govcontractscout.com (or actual domain)
+  - govportals.com (or actual domain)
+  - labpricecheck.com
+  - clinicaltrialsfinder.org
+  - consciousnessdirectory.com (or actual domain)
+
+STEP 9: Get SSL certificates
+  cd /opt/infra
+  ./scripts/init-ssl.sh your@email.com
+  # This requests Let's Encrypt certs for all enabled domains
+
+STEP 10: Start nginx with SSL
+  docker compose -f prod/docker-compose.yml up -d nginx certbot
+
+STEP 11: Verify all 5 sites
+  curl -I https://labpricecheck.com
+  curl -I https://clinicaltrialsfinder.org
+  # etc. — all should return 200
+
+STEP 12: Set up CI/CD secrets
+  For EACH of the 5 site repos on GitHub:
+  Go to Settings → Secrets → Actions, add:
+  - VPS_HOST: YOUR_VPS_IP
+  - VPS_USER: root
+  - VPS_SSH_KEY: (paste your private SSH key)
+
+STEP 13: Add CI workflow to each site repo
+  Copy templates/ci/build-deploy.yaml to each site as:
+    .github/workflows/build-deploy.yaml
+  Replace SITE_NAME with the docker-compose service name:
+  - govportals → govportals
+  - govcontractscout → govcontractscout
+  - labpricecheck → reagent-price-aggregator
+  - clinical-trials-finder → clinical-trial-matching
+  - consciousness-directory → consciousness-directory
+
+STEP 14: Migrate data from Neon/Supabase/Vercel Postgres
+  For each site that has data:
+  # Export from current provider
+  pg_dump -h old-host -U old-user old_db > dump.sql
+  # Import to VPS
+  cat dump.sql | docker compose -f prod/docker-compose.yml exec -T postgres psql -U admin DATABASE_NAME
+
+STEP 15: Set up backups
+  crontab -e
+  # Add:
+  0 3 * * * /opt/infra/scripts/backup-db.sh
+  mkdir -p /opt/backups/postgres
+
+STEP 16: Set up scraper crons
+  crontab -e
+  # Add scrapers as needed, e.g.:
+  0 2 * * * docker compose -f /opt/infra/prod/docker-compose.yml exec -T reagent-price-aggregator python scrapers/fetch_pubchem.py
+
+STEP 17: Cancel old services
+  Only AFTER confirming everything works on VPS:
+  - Cancel Vercel Pro for migrated sites
+  - Cancel Neon/Supabase if all data migrated
+  - Update DNS if any domains were on Vercel
+
+ADDING MORE SITES LATER:
+  1. Enable the nginx config:
+     cd /opt/infra/prod/nginx/sites-enabled
+     ln -sf ../sites-available/NEW_SITE.conf .
+  2. Point DNS for the new domain
+  3. Run: docker compose -f prod/docker-compose.yml run --rm certbot certonly --webroot --webroot-path=/var/www/certbot -d DOMAIN -d www.DOMAIN
+  4. Start the site:
+     docker compose -f prod/docker-compose.yml up -d NEW_SITE
+  5. Restart nginx:
+     docker compose -f prod/docker-compose.yml restart nginx
+
+
+==============================================
+PART 2: HOMELAB (Pi 5 — k3s)
+==============================================
+
+Purpose: K8s learning for DevOps interviews. NOT production.
+
+STEP 1: Verify Pi 5 k3s is running
+  ssh pi@PI_IP
+  sudo k3s kubectl get nodes
+  # Should show single node, Ready status
+
+STEP 2: Set up multi-node cluster (3 VMs via KVM)
+  # VMs already exist on Pi (virbr0 bridge active)
+  # Verify VM state:
+  sudo virsh list --all
+
+  # If VMs exist, start them:
+  sudo virsh start control-plane
+  sudo virsh start worker-1
+  sudo virsh start worker-2
+
+  # Install k3s on control plane VM:
+  ssh user@CONTROL_PLANE_IP
+  curl -sfL https://get.k3s.io | sh -
+  # Get the token:
+  sudo cat /var/lib/rancher/k3s/server/node-token
+
+  # Join worker nodes:
+  ssh user@WORKER_1_IP
+  curl -sfL https://get.k3s.io | K3S_URL=https://CONTROL_PLANE_IP:6443 K3S_TOKEN=TOKEN sh -
+  # Repeat for worker-2
+
+STEP 3: Set up kubectl access from Mac
+  # Copy kubeconfig from control plane
+  scp user@CONTROL_PLANE_IP:/etc/rancher/k3s/k3s.yaml ~/.kube/config-homelab
+  # Edit: replace 127.0.0.1 with control plane IP
+  export KUBECONFIG=~/.kube/config-homelab
+  kubectl get nodes
+  # Should show 3 nodes
+
+STEP 4: Deploy PostgreSQL
+  # Buy USB SSD first (SD cards corrupt under DB writes)
+  # Mount SSD on control plane VM
+  # Then:
+  kubectl apply -k homelab/manifests/base/database/
+
+STEP 5: Deploy first app (MOF Database)
+  # Create secret
+  kubectl create secret generic mof-database-secrets \
+    --from-literal=DATABASE_URL=postgresql://admin:password@postgres:5432/mof_database
+
+  # Deploy
+  kubectl apply -k homelab/manifests/overlays/homelab/
+
+  # Verify
+  kubectl get pods
+  kubectl logs deployment/mof-database
+
+STEP 6: Set up Flux GitOps (Phase 3)
+  # Install Flux CLI
+  curl -s https://fluxcd.io/install.sh | sudo bash
+
+  # Bootstrap
+  flux bootstrap github \
+    --owner=jxbt414 \
+    --repository=infra \
+    --path=homelab/flux \
+    --personal
+
+  # Now pushes to infra repo auto-deploy to homelab cluster
+
+STEP 7: Monitoring (Phase 4)
+  # Install kube-prometheus-stack via Helm
+  helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+  helm install monitoring prometheus-community/kube-prometheus-stack \
+    --namespace monitoring --create-namespace
+
+  # Access Grafana
+  kubectl port-forward -n monitoring svc/monitoring-grafana 3000:80
+
+STEP 8: Deploy remaining sites
+  # For each site:
+  ./scripts/add-site.sh SITE_NAME DOMAIN
+  kubectl apply -k homelab/manifests/overlays/homelab/
+
+
+==============================================
+SUMMARY — ORDER OF OPERATIONS
+==============================================
+
+WEEK 1: Production VPS
+  1. Provision Hetzner CPX42
+  2. Install Docker, clone infra repo
+  3. Start Postgres + 5 sites
+  4. Point DNS, get SSL certs
+  5. Set up CI/CD in each site repo
+  6. Migrate data from Neon/Supabase
+  7. Set up backups + scraper crons
+  8. Cancel Vercel/Neon when confirmed working
+
+WEEK 2+: Homelab (ongoing learning)
+  1. Set up multi-node k3s on Pi 5 VMs
+  2. Deploy apps to practice K8s
+  3. Set up Flux for GitOps
+  4. Add monitoring
+  5. Practice failure scenarios (drain nodes, kill pods, etc.)
+
+ONGOING:
+  - Add more sites to prod as domains are bought
+  - Push code → auto-build → auto-deploy (CI/CD handles it)
+  - Database backups run daily at 3am
+  - SSL certs auto-renew via certbot container
