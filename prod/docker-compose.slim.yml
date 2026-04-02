@@ -1,0 +1,83 @@
+# Slim deployment — 4 sites + scrapers
+# Usage: docker compose -f docker-compose.slim.yml up -d
+#
+# Sites: govcontractscout, govportals, clinical-trials, labpricecheck
+# Add nousindex once its repo is located
+
+services:
+  # ===================
+  # REVERSE PROXY + SSL
+  # ===================
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/sites-enabled:/etc/nginx/sites-enabled:ro
+      - certbot-webroot:/var/www/certbot:ro
+      - certbot-certs:/etc/letsencrypt:ro
+    depends_on:
+      - govcontractscout
+      - govportals
+      - clinical-trial-matching
+      - reagent-price-aggregator
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot-webroot:/var/www/certbot
+      - certbot-certs:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done'"
+    restart: unless-stopped
+
+  # ===================
+  # APPS
+  # ===================
+  govcontractscout:
+    image: ghcr.io/jxbt414/govcontractscout:latest
+    env_file: ./envs/govcontractscout.env
+    restart: unless-stopped
+
+  govportals:
+    image: ghcr.io/jxbt414/govportals:latest
+    env_file: ./envs/govportals.env
+    restart: unless-stopped
+
+  clinical-trial-matching:
+    image: ghcr.io/jxbt414/clinical-trial-matching:latest
+    env_file: ./envs/clinical-trial-matching.env
+    restart: unless-stopped
+
+  reagent-price-aggregator:
+    image: ghcr.io/jxbt414/reagent-price-aggregator:latest
+    env_file: ./envs/reagent-price-aggregator.env
+    restart: unless-stopped
+
+  # ===================
+  # SCRAPERS (runs on cron, not always-on)
+  # ===================
+  govcontract-scrapers:
+    image: ghcr.io/jxbt414/govcontract-scrapers:latest
+    env_file: ./envs/scrapers.env
+    profiles: ["scrapers"]
+    # Run via: docker compose -f docker-compose.slim.yml run --rm govcontract-scrapers python main.py
+    # Or cron: 0 4 * * * cd /opt/infra/prod && docker compose -f docker-compose.slim.yml run --rm govcontract-scrapers python main.py
+
+  # ===================
+  # MONITORING
+  # ===================
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    volumes:
+      - uptime-kuma-data:/app/data
+    ports:
+      - "127.0.0.1:3001:3001"
+    restart: unless-stopped
+
+volumes:
+  certbot-webroot:
+  certbot-certs:
+  uptime-kuma-data:

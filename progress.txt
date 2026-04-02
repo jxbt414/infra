@@ -1,6 +1,6 @@
 # Infrastructure Setup Progress
 
-Last updated: 2026-03-28
+Last updated: 2026-03-29
 
 ## Phase 1: Pi 5 Foundation (k3s + first app)
 
@@ -80,6 +80,12 @@ Last updated: 2026-03-28
 - [ ] Migrate data from Neon/Supabase to VPS PostgreSQL
 - [ ] Set up database backup cron (backup-db.sh)
 - [ ] Set up scraper crons on VPS (system crontab)
+- [x] Added cAdvisor (v0.49.1) to docker-compose.yml — container metrics on 127.0.0.1:8080
+- [x] Added Uptime Kuma to docker-compose.yml — status page on 127.0.0.1:3001
+- [x] Created health-check.sh — checks all services + disk/memory, alerts via Telegram
+- [x] Added TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID to .env.example
+- [ ] Set up health-check.sh cron on VPS (*/5 * * * *)
+- [ ] Configure Uptime Kuma monitors for all 15 sites
 - [ ] DNS cutover complete — cancel Vercel + Neon/Supabase paid tiers
 
 ---
@@ -132,7 +138,8 @@ infra/
 │   ├── deploy.sh           # SSH deploy to VPS
 │   ├── init-ssl.sh         # First-time Let's Encrypt
 │   ├── init-databases.sql  # Create 15 Postgres databases
-│   └── backup-db.sh        # pg_dump all databases
+│   ├── backup-db.sh        # pg_dump all databases
+│   └── health-check.sh     # Service health + Telegram alerts
 └── templates/              # Shared Dockerfile + K8s templates
 ```
 

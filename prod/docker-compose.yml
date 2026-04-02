@@ -219,7 +219,30 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # ===================
+  # MONITORING
+  # ===================
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    volumes:
+      - uptime-kuma-data:/app/data
+    ports:
+      - "127.0.0.1:3001:3001"
+    restart: unless-stopped
+
 volumes:
   pgdata:
   certbot-webroot:
   certbot-certs:
+  uptime-kuma-data:
