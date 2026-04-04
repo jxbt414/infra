@@ -18,19 +18,19 @@ variable "ssh_public_key" {
 variable "server_name" {
   description = "Name of the Hetzner server"
   type        = string
-  default     = "prod-vps"
+  default     = "prod-01"
 }
 
 variable "server_type" {
   description = "Hetzner server type (e.g., cx22, cx32)"
   type        = string
-  default     = "cx22"
+  default     = "cpx32"
 }
 
 variable "server_location" {
   description = "Hetzner datacenter location"
   type        = string
-  default     = "fsn1"
+  default     = "nbg1"
 }
 
 variable "server_image" {

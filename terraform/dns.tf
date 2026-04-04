@@ -3,7 +3,7 @@ resource "cloudflare_record" "root" {
   for_each = var.domains
 
   zone_id = each.value.zone_id
-  name    = "@"
+  name    = each.value.domain
   content = var.server_ip
   type    = "A"
   ttl     = 1       # 1 = automatic in Cloudflare

@@ -4,8 +4,8 @@ resource "hcloud_server" "prod" {
   location    = var.server_location
   image       = var.server_image
 
-  ssh_keys    = [hcloud_ssh_key.default.id]
-  firewall_ids = [hcloud_firewall.prod.id]
+  ssh_keys = [hcloud_ssh_key.default.id]
+  backups  = true
 
   labels = {
     environment = "production"
@@ -14,6 +14,6 @@ resource "hcloud_server" "prod" {
 
   lifecycle {
     prevent_destroy = true
-    ignore_changes  = [image]
+    ignore_changes  = [image, ssh_keys, firewall_ids]
   }
 }

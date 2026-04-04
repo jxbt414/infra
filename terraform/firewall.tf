@@ -1,3 +1,9 @@
+# Attach firewall to the server (separate resource to avoid server replacement)
+resource "hcloud_firewall_attachment" "prod" {
+  firewall_id = hcloud_firewall.prod.id
+  server_ids  = [hcloud_server.prod.id]
+}
+
 resource "hcloud_firewall" "prod" {
   name = "prod-firewall"
 

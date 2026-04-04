@@ -6,9 +6,9 @@ cloudflare_api_token = "your-cloudflare-api-token"
 
 ssh_public_key = "ssh-ed25519 AAAA... jadlao@macbook"
 
-server_name     = "prod-vps"
-server_type     = "cx22"
-server_location = "fsn1"
+server_name     = "prod-01"
+server_type     = "cpx32"
+server_location = "nbg1"
 server_image    = "ubuntu-22.04"
 
 server_ip = "178.104.132.83"
@@ -16,66 +16,33 @@ server_ip = "178.104.132.83"
 # Get zone IDs from Cloudflare dashboard or API:
 #   curl -H "Authorization: Bearer TOKEN" \
 #     "https://api.cloudflare.com/client/v4/zones" | jq '.result[] | {name, id}'
+#
+# Only include domains that are on Cloudflare.
+# Other domains (on registrar DNS) are managed outside Terraform.
 
 domains = {
-  calibrationfinder = {
-    domain  = "calibrationfinder.com"
-    zone_id = "ZONE_ID_HERE"
-  }
   clinicaltrialsfinder = {
     domain  = "clinicaltrialsfinder.org"
-    zone_id = "ZONE_ID_HERE"
-  }
-  consciousnessdirectory = {
-    domain  = "consciousnessdirectory.com"
-    zone_id = "ZONE_ID_HERE"
-  }
-  crodirectory = {
-    domain  = "crodirectory.com"
     zone_id = "ZONE_ID_HERE"
   }
   govcontractscout = {
     domain  = "govcontractscout.com"
     zone_id = "ZONE_ID_HERE"
   }
-  govportals = {
-    domain  = "govportals.com"
-    zone_id = "ZONE_ID_HERE"
-  }
-  grantfunding = {
-    domain  = "grantfunding.com"
-    zone_id = "ZONE_ID_HERE"
-  }
-  labequipmentsearch = {
-    domain  = "labequipmentsearch.com"
-    zone_id = "ZONE_ID_HERE"
-  }
   labpricecheck = {
     domain  = "labpricecheck.com"
     zone_id = "ZONE_ID_HERE"
   }
-  mofindex = {
-    domain  = "mofindex.com"
+  govbidportals = {
+    domain  = "govbidportals.com"
     zone_id = "ZONE_ID_HERE"
   }
-  plasmafinder = {
-    domain  = "plasmafinder.com.au"
+  jxbit = {
+    domain  = "jxbit.dev"
     zone_id = "ZONE_ID_HERE"
   }
-  referencestandards = {
-    domain  = "referencestandards.org"
-    zone_id = "ZONE_ID_HERE"
-  }
-  researchcores = {
-    domain  = "researchcores.com"
-    zone_id = "ZONE_ID_HERE"
-  }
-  researchprotocols = {
-    domain  = "researchprotocols.com"
-    zone_id = "ZONE_ID_HERE"
-  }
-  upeliterature = {
-    domain  = "upeliterature.com"
+  nousindex = {
+    domain  = "nousindex.com"
     zone_id = "ZONE_ID_HERE"
   }
 }
