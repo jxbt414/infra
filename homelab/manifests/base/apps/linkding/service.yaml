@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: mof-database
+  name: linkding
 spec:
   selector:
-    app: mof-database
+    app: linkding
   ports:
     - port: 80
-      targetPort: 3000
+      targetPort: 9090
       protocol: TCP

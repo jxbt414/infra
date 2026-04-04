@@ -47,23 +47,61 @@ Rollback:
 HOMELAB (Pi 5 — k3s)
 =====================
 
-Manual Deploy (current — Phase 1):
+Architecture:
+  - Pi 5 running k3s (single node or 3-node KVM cluster)
+  - Cilium CNI (eBPF networking, replaces Flannel)
+  - MetalLB (LoadBalancer IPs on LAN: 192.168.1.200-250)
+  - Traefik ingress (k3s default)
+  - Apps: Linkding (bookmarks), Wallabag (read-it-later) + PostgreSQL + Redis
 
-  # Images are already built by CI (multi-arch, pushes to ghcr.io)
-  # On Pi 5:
+Initial Cluster Setup:
+
+  # Step 1: Install k3s WITHOUT default CNI (Cilium replaces Flannel)
+  curl -sfL https://get.k3s.io | sh -s - server \
+    --cluster-init \
+    --flannel-backend=none \
+    --disable-network-policy \
+    --disable servicelb
+
+  # Step 2: Install Cilium CNI
+  helm repo add cilium https://helm.cilium.io/
+  helm install cilium cilium/cilium \
+    --namespace kube-system \
+    -f homelab/manifests/base/infra/cilium/values.yaml
+
+  # Step 3: Install MetalLB
+  kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml
+  # Wait for metallb pods to be ready
+  kubectl wait --namespace metallb-system --for=condition=ready pod --selector=app=metallb --timeout=90s
+  # Apply pool config
+  kubectl apply -k homelab/manifests/base/infra/metallb/
+
+  # Step 4: Create secrets
+  kubectl create secret generic linkding-secrets \
+    --from-literal=LD_SUPERUSER_NAME=admin \
+    --from-literal=LD_SUPERUSER_PASSWORD=<your-password>
+
+  kubectl create secret generic postgres-secrets \
+    --from-literal=POSTGRES_PASSWORD=<your-password>
+
+  kubectl create secret generic wallabag-secrets \
+    --from-literal=DB_USER=wallabag \
+    --from-literal=DB_PASSWORD=<your-password>
+
+  # Step 5: Deploy everything
   kubectl apply -k homelab/manifests/overlays/homelab/
 
-Automated Deploy (Phase 3 — Flux GitOps):
+  # Step 6: Verify
+  kubectl get pods -A
+  kubectl get svc -A
 
-  Push code to _saas main
-    → GitHub Actions builds image, pushes to ghcr.io
-    → Flux watches ghcr.io for new image tags
-    → Flux auto-updates the deployment on Pi 5
-    → No SSH, no manual kubectl
+  # Step 7: Add to /etc/hosts on your Mac (use MetalLB IP or node IP)
+  # <PI_IP>  linkding.local wallabag.local
 
 Rollback:
 
-  kubectl rollout undo deployment/mof-database
+  kubectl rollout undo deployment/linkding
+  kubectl rollout undo deployment/wallabag
 
 
 COMPARISON
@@ -71,7 +109,9 @@ COMPARISON
 
                     Production (Hetzner)          Homelab (Pi 5)
 Orchestration       Docker Compose                k3s
-Image registry      ghcr.io                       ghcr.io (same images)
+CNI                 N/A (Docker bridge)           Cilium (eBPF)
+Load Balancer       N/A                           MetalLB (192.168.1.200-250)
+Image registry      ghcr.io                       Docker Hub (public images)
 Deploy trigger      GitHub Actions SSH            kubectl now, Flux later
 Deploy command      docker compose pull && up -d  kubectl apply -k
 Auto-deploy         Yes (deploy-prod.yaml)        Phase 3 (Flux)

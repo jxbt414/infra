@@ -1,50 +1,41 @@
 # Infrastructure Setup Progress
 
-Last updated: 2026-03-29
+Last updated: 2026-04-04
 
-## Phase 1: Pi 5 Foundation (k3s + first app)
+## Phase 1: Pi 5 Foundation (k3s + Cilium + MetalLB + first apps)
 
 ### Completed
 - [x] Created infra repo directory structure
-- [x] Created MOF Database Dockerfile (multi-stage, standalone output)
-- [x] Created MOF Database .dockerignore
-- [x] Updated next.config.ts with output: "standalone"
-- [x] Created K8s manifests for MOF Database (deployment, service, ingress, kustomization)
-- [x] Created homelab + prod Kustomize overlays
 - [x] GitHub Actions CI workflow (monorepo-aware, builds only changed sites)
-  - Detects which site changed via git diff
-  - Builds multi-arch images (arm64 for Pi + amd64 for Hetzner)
-  - Pushes to ghcr.io
-  - Supports manual trigger via workflow_dispatch
 - [x] Created template Dockerfile + K8s manifests in infra/templates/
 - [x] Created add-site.sh scaffold script
 - [x] Created PostgreSQL StatefulSet + service manifests
-- [x] Init git on infra repo
 - [x] Pushed infra repo to GitHub (public): https://github.com/jxbt414/infra
-- [x] Archived/kept homelab-gitops and terraform-aws-infra repos (infra replaces both)
 - [x] Confirmed k3s already running on Pi 5 (v1.34.5+k3s1, single node, Ready status)
-- [x] Fixed kubectl version mismatch (snap kubectl v1.34.6 vs k3s v1.34.5 — use `sudo k3s kubectl`)
-- [x] Confirmed Pi 5 has internet access
-- [x] Published blog post on portfolio site: "From Vercel to K8s" (jxbit.dev/blog/vercel-to-k8s-self-hosting)
+- [x] Published blog post: "From Vercel to K8s" (jxbit.dev/blog/vercel-to-k8s-self-hosting)
+- [x] Created Linkding manifests (deployment, service, ingress, pvc, kustomization)
+- [x] Created Wallabag manifests (deployment, redis, service, ingress, pvc, kustomization)
+- [x] Created MetalLB manifests (IPAddressPool 192.168.1.200-250, L2Advertisement)
+- [x] Created Cilium helm values (eBPF, Hubble UI, kube-proxy replacement)
+- [x] Updated Kustomize overlays for new apps
+- [x] Updated deployment guide with full homelab setup steps
 
-### In Progress
-- [ ] Set up multi-node cluster on Pi 5 (3 VMs via KVM/libvirt: 1 control plane + 2 workers)
-  - VMs already exist on Pi (virbr0 bridge active, vnet interfaces visible)
-  - Need to verify existing VM state and configure k3s on each
+### TODO — On Pi 5
+- [ ] Reinstall k3s with --flannel-backend=none --disable-network-policy --disable servicelb
+- [ ] Install Cilium CNI via helm
+- [ ] Install MetalLB + apply pool config
+- [ ] Create K8s secrets (linkding, postgres, wallabag)
+- [ ] Deploy PostgreSQL StatefulSet
+- [ ] Create wallabag database in PostgreSQL
+- [ ] Deploy Linkding
+- [ ] Deploy Wallabag + Redis
+- [ ] Verify apps load in browser via ingress
+- [ ] Add linkding.local / wallabag.local to Mac /etc/hosts
 
-### TODO
-- [ ] Set up kubectl access from Mac laptop (copy kubeconfig, replace 127.0.0.1 with Pi IP)
-- [ ] Create K8s secret for DATABASE_URL
-- [ ] Build and push first Docker image (MOF Database)
-- [ ] Deploy MOF Database to Pi 5 k3s
-- [ ] Verify site loads in browser on local network
-
-## Phase 2: PostgreSQL + Data Migration (Homelab)
+## Phase 2: PostgreSQL + Persistent Storage (Homelab)
 - [ ] Buy USB SSD for Pi 5 (SD cards corrupt under DB writes)
 - [ ] Mount SSD, configure PersistentVolume
-- [ ] Deploy PostgreSQL StatefulSet
-- [ ] Migrate data from Neon/Supabase
-- [ ] Update app env vars
+- [ ] Migrate Wallabag data to SSD-backed storage
 - [ ] Set up backup CronJob
 
 ## Phase 3: GitOps with Flux (Homelab)
@@ -56,129 +47,67 @@ Last updated: 2026-03-29
 ## Phase 4: Observability (Homelab)
 - [ ] Install kube-prometheus-stack (Prometheus + Grafana)
 - [ ] Configure dashboards
-- [ ] Install Loki (if RAM allows — Pi has 8GB total, shared across host + 3 VMs)
+- [ ] Install Loki (if RAM allows — Pi has 8GB total)
 - [ ] Set up Telegram alerts
 
 ## Phase 5: Remaining Apps + Scrapers (Homelab)
-- [ ] Dockerize remaining 7 sites (template Dockerfile)
+- [ ] Dockerize remaining sites (template Dockerfile)
 - [ ] Create K8s manifests for each site
-- [ ] Move scrapers to K8s CronJobs (replacing GitHub Actions cron — hit 2 job limit)
+- [ ] Move scrapers to K8s CronJobs
 - [ ] CI pipelines for all sites
 
-## Phase 6: Hetzner Production (Docker Compose)
-- [ ] Provision Hetzner CPX42 (16GB RAM, 8 vCPU, 320GB SSD — €19.49/mo)
-- [ ] Install Docker + Docker Compose on VPS
-- [ ] Clone infra repo to /opt/infra
-- [ ] Create .env with Postgres credentials
-- [ ] Start PostgreSQL (auto-creates 8 databases via init-databases.sql)
-- [ ] Point all 8 domains to VPS IP in Cloudflare (DNS only, not proxied)
-- [ ] Run init-ssl.sh to get Let's Encrypt certs for all domains
-- [ ] Start all services: docker compose -f docker-compose.prod.yml up -d
-- [ ] Verify all 8 sites load via their domains
-- [ ] Add GitHub Actions secrets (VPS_HOST, VPS_USER, VPS_SSH_KEY)
-- [ ] Test deploy-prod.yaml workflow (auto-deploy on image build)
-- [ ] Migrate data from Neon/Supabase to VPS PostgreSQL
-- [ ] Set up database backup cron (backup-db.sh)
-- [ ] Set up scraper crons on VPS (system crontab)
-- [x] Added cAdvisor (v0.49.1) to docker-compose.yml — container metrics on 127.0.0.1:8080
-- [x] Added Uptime Kuma to docker-compose.yml — status page on 127.0.0.1:3001
-- [x] Created health-check.sh — checks all services + disk/memory, alerts via Telegram
-- [x] Added TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID to .env.example
-- [ ] Set up health-check.sh cron on VPS (*/5 * * * *)
+## Phase 6: Hetzner Production (Docker Compose) — ALREADY RUNNING
+- [x] Hetzner VPS provisioned and running
+- [x] Docker Compose with 15 Next.js sites + PostgreSQL + Nginx
+- [x] CI/CD via GitHub Actions SSH deploy
+- [x] SSL certs via certbot
+- [x] Database backups via cron
+- [x] cAdvisor + Uptime Kuma monitoring
 - [ ] Configure Uptime Kuma monitors for all 15 sites
-- [ ] DNS cutover complete — cancel Vercel + Neon/Supabase paid tiers
 
 ---
 
 ## Architecture Decisions
 
-### Revised Architecture (2026-03-28)
+### Revised Architecture (2026-04-04)
 
 **Homelab (Pi 5) — K8s learning lab:**
-- 3-node k3s cluster via KVM VMs (1 control plane + 2 workers, ~2GB RAM each)
-- Purpose: learn multi-node K8s for DevOps interviews, test deployments, break things
-- Runs all K8s tooling: Kustomize, Flux, Prometheus/Grafana, CronJobs
-- NOT for serving production traffic
+- Single-node k3s (expandable to 3-node KVM cluster later)
+- Cilium CNI (eBPF networking, Hubble observability)
+- MetalLB (LoadBalancer IPs: 192.168.1.200-250)
+- Traefik ingress (k3s default)
+- Apps: Linkding (bookmarks) + Wallabag (read-it-later) + PostgreSQL + Redis
+- Purpose: learn production K8s for DevOps interviews, blog content
 
-**Production (Hetzner CPX32) — Docker Compose:**
-- Single VPS: 16GB RAM, 8 vCPU, 320GB SSD — €19.49/mo
-- Docker Compose with: 15 Next.js sites + PostgreSQL + Nginx + Certbot
-- Why not K8s: single VPS doesn't benefit from K8s orchestration, Docker Compose is the right tool
-- Scrapers run via system crontab + docker exec
-- Database backups via cron + pg_dump
+**Production (Hetzner VPS) — Docker Compose:**
+- Single VPS: Docker Compose with 15 sites + PostgreSQL + Nginx
+- Why not K8s: single VPS doesn't benefit from K8s orchestration
 
 **Why the split:**
-- K8s on a single VPS is over-engineering — adds complexity without benefit
-- Docker Compose is simpler to debug, less RAM overhead, fewer moving parts
+- K8s on a single VPS is over-engineering
 - Homelab is where K8s skills are learned; production is where simplicity wins
 - Interview answer: "I chose Docker Compose for production because K8s was overkill for a single node"
-
-### Cost Comparison
-- Before: Vercel Pro ($20/site × 15) + Neon ($19+) = ~$320+/mo
-- After: Hetzner CPX42 = €19.49/mo (~$21 USD)
-- Savings: ~$300/mo, ~$3,600/yr
 
 ### Repo Structure
 ```
 infra/
 ├── homelab/                # K8s learning lab (Pi 5)
-│   ├── manifests/
-│   │   ├── base/           # Shared K8s manifests
-│   │   └── overlays/       # homelab + prod overlays
-│   ├── flux/               # GitOps (Phase 3)
-│   └── monitoring/         # Prometheus/Grafana (Phase 4)
+│   └── manifests/
+│       ├── base/
+│       │   ├── apps/
+│       │   │   ├── linkding/    # Bookmark manager
+│       │   │   └── wallabag/    # Read-it-later + Redis
+│       │   ├── database/        # PostgreSQL StatefulSet
+│       │   └── infra/
+│       │       ├── cilium/      # Helm values for eBPF CNI
+│       │       └── metallb/     # LoadBalancer IP pool
+│       └── overlays/
+│           ├── homelab/         # Homelab-specific kustomization
+│           └── prod/            # Prod kustomization (reference)
 ├── prod/                   # Docker Compose production (Hetzner)
 │   ├── docker-compose.yml
 │   ├── nginx/
-│   │   ├── nginx.conf
-│   │   └── sites/          # Per-domain configs (15 files)
-│   └── .env.example
+│   └── envs/
 ├── scripts/                # Shared scripts
-│   ├── add-site.sh         # Scaffold K8s manifests
-│   ├── deploy.sh           # SSH deploy to VPS
-│   ├── init-ssl.sh         # First-time Let's Encrypt
-│   ├── init-databases.sql  # Create 15 Postgres databases
-│   ├── backup-db.sh        # pg_dump all databases
-│   └── health-check.sh     # Service health + Telegram alerts
 └── templates/              # Shared Dockerfile + K8s templates
 ```
-
-### Code Layout
-- **Individual repos:** Each site has its own GitHub repo with CI/CD
-- **infra repo (public):** homelab/ (K8s) + prod/ (Docker Compose) + shared scripts/templates
-- **GitHub Actions CI:** Each site repo builds its own Docker image → deploys to VPS via SSH
-
-### Site Roster (15 sites)
-
-**Science Pipeline (11):**
-| # | Local directory | GitHub repo | Domain | Status |
-|---|---|---|---|---|
-| 1 | mof-database | mof-database | mofindex.com | Needs domain |
-| 2 | clinical-trial-matching | clinical-trials-finder | clinicaltrialsfinder.org | Active |
-| 3 | reagent-price-aggregator | labpricecheck | labpricecheck.com | Active |
-| 4 | lab-equipment-search | lab-equipment-search | TBD | Needs domain |
-| 5 | research-protocol-search | researchprotocols | TBD | Needs domain |
-| 6 | grant-funding-aggregator | grant-funding-aggregator | TBD | Needs domain |
-| 7 | core-facilities-directory | researchcores | TBD | Needs domain |
-| 8 | plasma-donation-au | plasmafinder-au | plasmafinder.com.au | Active |
-| 9 | calibration-finder | calibration-finder | TBD | Needs domain |
-| 10 | reference-standards | reference-standards | referencestandards.org | Needs domain |
-| 11 | cro-directory | cro-directory | TBD | Needs domain |
-
-**Consciousness Research (2):**
-| # | Local directory | GitHub repo | Domain | Status |
-|---|---|---|---|---|
-| 12 | upe-literature-db | upe-literature-db | upeliterature.com | Needs domain |
-| 13 | consciousness-directory | consciousness-directory | TBD | Needs domain |
-
-**Gov / SaaS (2):**
-| # | Local directory | GitHub repo | Domain | Status |
-|---|---|---|---|---|
-| 14 | govcontractscout | govcontractscout | TBD | Needs domain |
-| 15 | govportals | govportals | TBD | Needs domain |
-
-### Key Gotchas Found
-- Pi 5 default gateway not persisting after reboot — need to configure via nmcli permanently
-- snap kubectl (v1.34.6) conflicts with k3s (v1.34.5) — remove snap, symlink k3s kubectl
-- SD cards corrupt under database writes — USB SSD required for Postgres
-- WiFi adapter can crash after route changes — always have physical access fallback
